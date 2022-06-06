@@ -202,7 +202,7 @@ impl WinDivert {
         }
     }
 
-    /// Single packet blocking recv function.
+    /// Single packet blocking recv with buffer function.
     pub fn recv_with_buffer(&self, mut buffer: Vec<u8>) -> Result<(usize, WinDivertPacket), WinDivertError> {
         let mut packet_length = 0;
         // let mut buffer = vec![0u8; buffer_size];

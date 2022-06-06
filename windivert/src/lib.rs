@@ -205,7 +205,6 @@ impl WinDivert {
     /// Single packet blocking recv with buffer function.
     pub fn recv_with_buffer(&self, mut buffer: Vec<u8>) -> Result<(usize, WinDivertPacket), WinDivertError> {
         let mut packet_length = 0;
-        // let mut buffer = vec![0u8; buffer_size];
         let mut addr = WINDIVERT_ADDRESS::default();
         if unsafe {
             wd::WinDivertRecv(
@@ -218,7 +217,6 @@ impl WinDivert {
         }
             .as_bool()
         {
-            // buffer.truncate(packet_length as usize);
             Ok(
                 (
                     packet_length as usize,
@@ -440,6 +438,21 @@ impl WinDivert {
                 packet.data.len() as u32,
                 &mut injected_length,
                 &packet.address,
+            ))
+        }
+        Ok(injected_length)
+    }
+
+    /// Single packet send function.
+    pub fn send_with_buffer<T: Into<WinDivertPacket>>(&self, addr: WINDIVERT_ADDRESS, buffer: &mut Vec<u8>) -> Result<u32, WinDivertError> {
+        let mut injected_length = 0;
+        unsafe {
+            try_divert!(wd::WinDivertSend(
+                self.handle,
+                buffer.as_mut_ptr() as *const c_void,
+                buffer.len() as u32,
+                &mut injected_length,
+                &addr,
             ))
         }
         Ok(injected_length)

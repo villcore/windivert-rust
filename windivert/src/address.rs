@@ -93,7 +93,7 @@ macro_rules! addr_impl {
 #[derive(Debug, Default)]
 /// Extra address data for [`Network`](WinDivertLayer::Network) packets
 pub struct WinDivertNetworkData<'a> {
-    pub(crate) data: Cow<'a, WINDIVERT_ADDRESS>,
+    pub data: Cow<'a, WINDIVERT_ADDRESS>,
 }
 
 impl<'a> WinDivertNetworkData<'a> {

@@ -444,7 +444,7 @@ impl WinDivert {
     }
 
     /// Single packet send function.
-    pub fn send_with_buffer<T: Into<WinDivertPacket>>(&self, addr: WINDIVERT_ADDRESS, buffer: &mut Vec<u8>) -> Result<u32, WinDivertError> {
+    pub fn send_with_buffer(&self, addr: WINDIVERT_ADDRESS, buffer: &mut Vec<u8>) -> Result<u32, WinDivertError> {
         let mut injected_length = 0;
         unsafe {
             try_divert!(wd::WinDivertSend(

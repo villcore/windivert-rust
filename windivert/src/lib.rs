@@ -202,6 +202,36 @@ impl WinDivert {
         }
     }
 
+    /// Single packet blocking recv function.
+    pub fn recv_with_buffer(&self, mut buffer: Vec<u8>) -> Result<WinDivertPacket, WinDivertError> {
+        let mut packet_length = 0;
+        // let mut buffer = vec![0u8; buffer_size];
+        let mut addr = WINDIVERT_ADDRESS::default();
+        if unsafe {
+            wd::WinDivertRecv(
+                self.handle,
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len() as u32,
+                &mut packet_length,
+                &mut addr,
+            )
+        }
+            .as_bool()
+        {
+            buffer.truncate(packet_length as usize);
+            Ok(WinDivertPacket {
+                address: addr,
+                data: buffer,
+            })
+        } else {
+            let err = WinDivertRecvError::try_from(std::io::Error::last_os_error());
+            match err {
+                Ok(err) => Err(WinDivertError::Recv(err)),
+                Err(err) => Err(WinDivertError::OSError(err)),
+            }
+        }
+    }
+
     /// Batched blocking recv function.
     pub fn recv_ex(
         &self,

@@ -172,6 +172,60 @@ impl WinDivert {
         packets
     }
 
+    fn parse_packets_with_buffer(
+        &self,
+        mut buffer: Vec<u8>,
+        addr_buffer: Vec<WINDIVERT_ADDRESS>,
+        mut packet_buffer_vec: Vec<Vec<u8>> ,
+    ) -> (Vec<WinDivertPacket>, Vec<Vec<u8>>) {
+        let packet_buffer_vec_size = packet_buffer_vec.len();
+        let addr_buffer_vec_size = addr_buffer.len();
+        let remain_packet_buffer_size = packet_buffer_vec_size - addr_buffer_vec_size;
+        let mut remain_packet_buffer_vec = Vec::with_capacity(remain_packet_buffer_size);
+        for _ in 0..remain_packet_buffer_size {
+            remain_packet_buffer_vec.push(packet_buffer_vec.pop().unwrap());
+        }
+
+        let mut packets = Vec::with_capacity(addr_buffer_vec_size);
+        for (idx, mut packet_buffer) in packet_buffer_vec.into_iter().enumerate() {
+            let idx = addr_buffer_vec_size - 1 - idx;
+            let addr = addr_buffer.get(idx).unwrap();
+            let mut pos_offset = 0usize;
+            packets.insert(idx, WinDivertPacket {
+                address: *addr,
+                data: match self.layer {
+                    WinDivertLayer::Network | WinDivertLayer::Forward => {
+                        let headers = SlicedPacket::from_ip(&buffer[pos_offset..])
+                            .expect("WinDivert can't capture anything below ip");
+                        let offset = match headers.ip.unwrap() {
+                            InternetSlice::Ipv4(ip_header, _) => ip_header.total_len() as usize,
+                            InternetSlice::Ipv6(ip6header, _) => {
+                                ip6header.payload_length() as usize + 40
+                            }
+                        };
+                        packet_buffer.copy_from_slice(&buffer[pos_offset.. pos_offset + offset]);
+                        pos_offset = pos_offset + offset;
+                        packet_buffer
+                    }
+                    WinDivertLayer::Reflect => {
+                        let offset = buffer[pos_offset..]
+                            .iter()
+                            .position(|&x| x == b'\0')
+                            .expect("CStrings always end in null");
+                        packet_buffer.copy_from_slice(&buffer[pos_offset.. pos_offset + offset]);
+                        pos_offset = pos_offset + offset;
+                        packet_buffer
+                    }
+                    _ => Vec::new()
+                },
+            });
+        }
+        for idx in 0..addr_buffer_vec_size {
+
+        }
+        (packets, remain_packet_buffer_vec)
+    }
+
     /// Single packet blocking recv function.
     pub fn recv(&self, buffer_size: usize) -> Result<WinDivertPacket, WinDivertError> {
         let mut packet_length = 0;
@@ -265,6 +319,38 @@ impl WinDivert {
             addr_buffer.truncate((addr_len / ADDR_SIZE as u32) as usize);
             buffer.truncate(packet_length as usize);
             Ok(Some(self.parse_packets(buffer, addr_buffer)))
+        } else {
+            let err = WinDivertRecvError::try_from(std::io::Error::last_os_error());
+            match err {
+                Ok(err) => Err(WinDivertError::Recv(err)),
+                Err(err) => Err(WinDivertError::OSError(err)),
+            }
+        }
+    }
+
+    /// Batched blocking recv with buffer function.
+    pub fn recv_ex_with_buffer(&self, mut tmp_buffer: Vec<u8>, mut batch_buffer: Vec<Vec<u8>>) -> Result<(Vec<WinDivertPacket>, Vec<Vec<u8>>), WinDivertError> {
+        let packet_count = batch_buffer.len();
+        let mut addr_len = (ADDR_SIZE * packet_count) as u32;
+        let mut addr_buffer: Vec<WINDIVERT_ADDRESS> = vec![WINDIVERT_ADDRESS::default(); packet_count];
+        let mut packet_length = 0;
+        if unsafe {
+            wd::WinDivertRecvEx(
+                self.handle,
+                tmp_buffer.as_mut_ptr() as *mut c_void,
+                tmp_buffer.len() as u32,
+                &mut packet_length,
+                0,
+                addr_buffer.as_mut_ptr(),
+                &mut addr_len,
+                std::ptr::null_mut() as *mut OVERLAPPED,
+            )
+        }
+            .as_bool()
+        {
+            addr_buffer.truncate((addr_len / ADDR_SIZE as u32) as usize);
+            unsafe {tmp_buffer.set_len(packet_length as usize)};
+            Ok(self.parse_packets_with_buffer(tmp_buffer, addr_buffer, batch_buffer))
         } else {
             let err = WinDivertRecvError::try_from(std::io::Error::last_os_error());
             match err {

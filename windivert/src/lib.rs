@@ -203,6 +203,7 @@ impl WinDivert {
                                 ip6header.payload_length() as usize + 40
                             }
                         };
+                        unsafe {packet_buffer.set_len(offset)}
                         packet_buffer.copy_from_slice(&buffer[pos_offset.. pos_offset + offset]);
                         pos_offset = pos_offset + offset;
                         packet_buffer
@@ -212,6 +213,7 @@ impl WinDivert {
                             .iter()
                             .position(|&x| x == b'\0')
                             .expect("CStrings always end in null");
+                        unsafe {packet_buffer.set_len(offset)}
                         packet_buffer.copy_from_slice(&buffer[pos_offset.. pos_offset + offset]);
                         pos_offset = pos_offset + offset;
                         packet_buffer

@@ -188,10 +188,9 @@ impl WinDivert {
 
         let mut packets = Vec::with_capacity(addr_buffer_vec_size);
         for (idx, mut packet_buffer) in packet_buffer_vec.into_iter().enumerate() {
-            let idx = addr_buffer_vec_size - 1 - idx;
             let addr = addr_buffer.get(idx).unwrap();
             let mut pos_offset = 0usize;
-            packets.insert(idx, WinDivertPacket {
+            packets.push(WinDivertPacket {
                 address: *addr,
                 data: match self.layer {
                     WinDivertLayer::Network | WinDivertLayer::Forward => {

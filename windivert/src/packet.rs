@@ -6,7 +6,7 @@ use windivert_sys::address::WINDIVERT_ADDRESS;
 #[derive(Debug)]
 /// Raw packet
 pub struct WinDivertPacket {
-    pub(crate) address: WINDIVERT_ADDRESS,
+    pub address: WINDIVERT_ADDRESS,
     /// Raw captured data
     pub data: Vec<u8>,
 }
